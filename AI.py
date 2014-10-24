@@ -14,6 +14,8 @@ class AI(BaseAI):
   @staticmethod
   def password():
     return "password"
+
+  cache = dict()
   MOTHER, SPAWNER, CHOKER, SOAKER, TUBLEWEED, ARALIA, TITAN, POOL = range(8)
   ##This function is called once, before your first turn
   def init(self):
@@ -24,17 +26,20 @@ class AI(BaseAI):
     pass
 
   def updateCache(self):
-      pass
-
-
-  def spawnable(self):
-    spawns = []
+    self.cache = dict()
     for plant in self.plants:
+      self.cache[(plant.x, plant.y)] = plant
+    return self.cache
+
+  def spawn(self):
+    for plant in self.plants:
+      if self.players[self.playerID].spores < self.plants[self.SPAWNER].spores:
+        break
       if plant.mutation in (self.MOTHER, self.SPAWNER):
-        for x, y in range(plant.range), range(plant.range):
-          spawns.append((plant.x + x, plant.y + y))
-    return spawns
-    pass
+        if plant.owner is self.playerID:
+          if (self.forward(plant.x, 10), plant.y) not in self.cache:
+            if self.players[self.playerID].spores > self.mutations[self.SPAWNER].spores:
+              self.players[self.playerID].germinate(self.forward(plant.x, 10), plant.y, self.SPAWNER)
 
   def forward(self, x, dist):
     if self.playerID:
@@ -44,16 +49,8 @@ class AI(BaseAI):
   ##This function is called each time it is your turn
   ##Return true to end your turn, return false to ask the server for updated information
   def run(self):
-    cache = dict()
-    for plant in self.plants:
-      cache[(plant.x, plant.y)] = plant
-    for plant in self.plants:
-      if plant.mutation in (self.MOTHER, self.SPAWNER):
-        if plant.owner is self.playerID:
-          if (self.forward(plant.x, 10), plant.y) not in cache:
-            if self.players[self.playerID].spores > self.mutations[self.SPAWNER].spores:
-              self.players[self.playerID].germinate(self.forward(plant.x, 10), plant.y, self.SPAWNER)
-              break
+    self.updateCache()
+    self.spawn()
     return 1
 
   def __init__(self, conn):
