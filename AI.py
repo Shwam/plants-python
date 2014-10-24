@@ -24,8 +24,11 @@ class AI(BaseAI):
     pass
 
   def updateCache(self):
+    plant_pos
     for plant in self.plants:
-      plant_pos[(plant.x, plant.y)] = plant
+      plant_pos[(plant.x, plant.y) = plant
+    return plant_pos
+
 
   def spawnable(self):
     spawns = []
@@ -44,7 +47,9 @@ class AI(BaseAI):
   ##This function is called each time it is your turn
   ##Return true to end your turn, return false to ask the server for updated information
   def run(self):
-    cache = self.updateCache()
+    cache
+    for plant in self.plants:
+      cache[(plant.x, plant.y) = plant
     if self.players[self.playerID].spores > self.mutations[SPAWNER].spores:
       for plant in self.plants:
         if plant.mutation in (MOTHER, SPAWNER):
