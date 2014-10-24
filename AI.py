@@ -1,6 +1,7 @@
 #-*-python-*-
 from BaseAI import BaseAI
 from GameObject import *
+import random
 
 
 
@@ -13,7 +14,6 @@ class AI(BaseAI):
   @staticmethod
   def password():
     return "password"
-
   MOTHER, SPAWNER, CHOKER, SOAKER, TUBLEWEED, ARALIA, TITAN, POOL = range(8)
   ##This function is called once, before your first turn
   def init(self):
@@ -24,17 +24,14 @@ class AI(BaseAI):
     pass
 
   def updateCache(self):
-    plant_pos
-    for plant in self.plants:
-      plant_pos[(plant.x, plant.y) = plant
-    return plant_pos
+      pass
 
 
   def spawnable(self):
     spawns = []
     for plant in self.plants:
-      if plant.mutation in (MOTHER, SPAWNER):
-        for x, y in range(-plant.range, plant.range), range(-plant.range, plant.range):
+      if plant.mutation in (self.MOTHER, self.SPAWNER):
+        for x, y in range(plant.range), range(plant.range):
           spawns.append((plant.x + x, plant.y + y))
     return spawns
     pass
@@ -47,15 +44,15 @@ class AI(BaseAI):
   ##This function is called each time it is your turn
   ##Return true to end your turn, return false to ask the server for updated information
   def run(self):
-    cache
+    cache = dict()
     for plant in self.plants:
-      cache[(plant.x, plant.y) = plant
-    if self.players[self.playerID].spores > self.mutations[SPAWNER].spores:
-      for plant in self.plants:
-        if plant.mutation in (MOTHER, SPAWNER):
-          if plant.owner is self.playerID:
-            if cache((self.forward(plant.x, 10), plant.y)) is None:
-              self.players[self.playerID].germinate(self.forward(plant.x, 10), plant.y, SPAWNER)
+      cache[(plant.x, plant.y)] = plant
+    for plant in self.plants:
+      if plant.mutation in (self.MOTHER, self.SPAWNER):
+        if plant.owner is self.playerID:
+          if (self.forward(plant.x, 10), plant.y) not in cache:
+            if self.players[self.playerID].spores > self.mutations[self.SPAWNER].spores:
+              self.players[self.playerID].germinate(self.forward(plant.x, 10), plant.y, self.SPAWNER)
               break
     return 1
 
