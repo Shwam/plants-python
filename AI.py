@@ -23,6 +23,7 @@ class AI(BaseAI):
   health = dict()
   pools = dict()
   budget = dict()
+  healers = dict()
 
   my_spores = 0
   enemy_mother = (0,0)
@@ -54,6 +55,7 @@ class AI(BaseAI):
   def updateCache(self):
     self.cache = dict()
     self.mySpawners = dict()
+    self.spawning = dict()
     self.enemies = dict()
     for h in self.health:
       h = 0
@@ -65,6 +67,8 @@ class AI(BaseAI):
           self.enemies[(plant.x, plant.y)] = plant
         elif plant.mutation in (self.MOTHER, self.SPAWNER):
           self.mySpawners[(plant.x, plant.y)] = plant
+        elif plant.mutation is self.TUMBLEWEED:
+          self.healers[(plant.x, plant.y)] = plant
     for spawn in self.spawning:
       if spawn in self.cache:
         self.spawning[spawn] = 0
@@ -141,6 +145,8 @@ class AI(BaseAI):
     if target is None or origin not in self.cache:
       return None
     r = self.uprootRange
+    if self.cache[origin].mutation is self.TUMBLEWEED:
+      r = self.bumbleweedSpeed
     dist = self.distance(origin, target)
     sPoint = None
     if dist > r:
@@ -228,7 +234,6 @@ class AI(BaseAI):
     return False
 
   def branch_spawn(self):
-
     for branch in self.branches:
       #print(self.spawning)
       if not branch:
@@ -272,6 +277,8 @@ class AI(BaseAI):
                     break;
           else:
             self.spawnFrom(target[0], target[1], self.CHOKER, branchID)
+            spawn = self.spawnPoint(head, head)
+            self.spawn(spawn[0], spawn[1], self.TUMBLEWEED)
             for rad in range(5):
               for t in self.radius(goal, rad):
                 self.spawnFrom(t[0], t[1], random.choice(self.attackers), branchID)
@@ -326,13 +333,41 @@ class AI(BaseAI):
 
   def defend(self):
     for enemy in self.enemies:
-      if self.distance(enemy, self.my_mother) < self.mutations[self.MOTHER].range:
+      if self.distance(enemy, self.my_mother) < self.mutations[self.MOTHER].range * 2:
         spawn = self.spawnPoint(self.my_mother, enemy)
         self.spawn(spawn[0], spawn[1], self.TITAN)
+
         for _ in range(8):
           spawn = self.spawnPoint(self.my_mother, enemy)
           self.spawn(spawn[0], spawn[1], self.CHOKER)
-        
+  
+  def nearest_damaged_unit(self, healer):
+    closest = self.my_mother
+    for plant in self.plants:
+      if plant.owner is self.playerID and plant.rads > 0:
+        if self.distance(healer, (plant.x, plant.y)) < self.distance(healer, closest):
+          closest = (plant.x, plant.y)
+    if self.my_mother is closest:
+      return None
+    return closest
+
+
+  def heal(self):
+    for healer in self.plants:
+      if healer.owner is self.playerID and healer.mutation is self.TUMBLEWEED:
+        #healer.uproot(self.forward(healer.x, self.bumbleweedSpeed), healer.y)
+        for plant in self.plants:
+          if plant.owner is self.playerID and (plant.x, plant.y) in self.health and plant.mutation is not self.MOTHER:
+            closest = self.nearest_damaged_unit((healer.x, healer.y))
+            if closest is not None:
+              if self.distance((healer.x, healer.y), closest) < healer.range:
+                healer.radiate(closest[0], closest[1])
+                break
+              moveTo = self.movePoint((healer.x, healer.y), closest)
+              healer.uproot(moveTo[0], moveTo[1])
+              break
+            #print("Ready to heal {}".format(self.health[(plant.x, plant.y)]))
+
 
   def setBudget(self):
     self.budget = dict()
@@ -349,6 +384,7 @@ class AI(BaseAI):
     if self.mode == 0: #Branch Out strategy
       #print(" BRANCHES : {}".format(self.branches))
       self.defend()
+      self.heal()
       self.setBudget()
       self.attack()
       self.branch_spawn()
