@@ -151,7 +151,7 @@ class AI(BaseAI):
       return sPoint
     for rad in range(15):
       for neighbor in self.radius(sPoint, rad):
-        if not self.occupied(neighbor[0], neighbor[1]) and self.distance(neighbor, origin) <= r:
+        if not self.occupied(neighbor[0], neighbor[1]) and self.distance(neighbor, origin) < r:
           return neighbor
     return None
 
@@ -184,20 +184,20 @@ class AI(BaseAI):
         return spawner
 
   def bring_to_front(self, unit):
-    spawner = self.getBranch(unit)
+    '''spawner = self.getBranch(unit)
     if spawner is None:
       return None
     #bring the unit closer to the front
     point = self.movePoint(unit, self.find_closest_enemy(unit))
     return point
-    '''OLD
+    '''
     #find spawners in range
     spawner = self.getBranch(unit)
     if spawner is None:
       return None
     #bring the unit closer to the front
     point = self.spawnPoint(spawner, self.getTarget(spawner))
-    return point'''
+    return point
 
   def occupied(self, x, y):
     return ((x, y) in self.cache or ((x, y) in self.spawning and self.spawning[(x, y)] is not 0))
@@ -322,7 +322,7 @@ class AI(BaseAI):
                   plant.uproot(move_to[0], move_to[1])
                   self.cache[move_to] = plant;
                   spawned = True
-        plant.uproot(self.forward((plant.x), random.randint(40,50)), plant.y)
+        plant.uproot(self.forward((plant.x), random.randint(4,50)), plant.y)
     pass
 
 
@@ -352,7 +352,7 @@ class AI(BaseAI):
       self.setBudget()
       self.attack()
       self.branch_spawn()
-      if self.turnNumber <= 6:
+      if self.turnNumber <= 3:
         b = self.branches[len(self.branches) - 1]
         spawner = b[0]
         if spawner in self.cache:
