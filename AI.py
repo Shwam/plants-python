@@ -140,7 +140,7 @@ class AI(BaseAI):
   def movePoint(self, origin, target):
     if target is None or origin not in self.cache:
       return None
-    r = self.cache[origin].range
+    r = self.uprootRange
     dist = self.distance(origin, target)
     sPoint = None
     if dist > r:
@@ -162,7 +162,7 @@ class AI(BaseAI):
     if spawner not in self.cache:
       print("Error: spawnPoint spawner at {} does not exist".format(spawner))
       return None
-    r = self.uprootRange
+    r = self.cache[spawner].range
     dist = self.distance(spawner, target)
     sPoint = None
     if dist > r:
@@ -184,20 +184,20 @@ class AI(BaseAI):
         return spawner
 
   def bring_to_front(self, unit):
-    '''spawner = self.getBranch(unit)
+    spawner = self.getBranch(unit)
     if spawner is None:
       return None
     #bring the unit closer to the front
     point = self.movePoint(unit, self.find_closest_enemy(unit))
     return point
-    '''
-    #find spawners in range
+    
+    '''#find spawners in range
     spawner = self.getBranch(unit)
     if spawner is None:
       return None
     #bring the unit closer to the front
     point = self.spawnPoint(spawner, self.getTarget(spawner))
-    return point
+    return point'''
 
   def occupied(self, x, y):
     return ((x, y) in self.cache or ((x, y) in self.spawning and self.spawning[(x, y)] is not 0))
@@ -274,9 +274,7 @@ class AI(BaseAI):
             self.spawnFrom(target[0], target[1], self.CHOKER, branchID)
             for rad in range(5):
               for t in self.radius(goal, rad):
-                self.spawnFrom(t[0], t[1], self.ARALIA, branchID)
-              for t in self.radius(goal, rad):
-                self.spawnFrom(t[0], t[1], random.choice(self.attackers), branchID)
+                self.spawnFrom(t[0], t[1], self.attackers[self.playerID], branchID)
   
   def add_branch(self, x, y):
     if self.spawn(x, y, self.SPAWNER):
@@ -322,16 +320,19 @@ class AI(BaseAI):
                   plant.uproot(move_to[0], move_to[1])
                   self.cache[move_to] = plant;
                   spawned = True
-        plant.uproot(self.forward((plant.x), random.randint(4,50)), plant.y)
+        #plant.uproot(self.forward((plant.x), random.randint(40,50)), plant.y)
     pass
 
 
   def defend(self):
     for enemy in self.enemies:
       if self.distance(enemy, self.my_mother) < self.mutations[self.MOTHER].range:
-        for _ in range(5):
+        spawn = self.spawnPoint(self.my_mother, enemy)
+        self.spawn(spawn[0], spawn[1], self.TITAN)
+        for _ in range(8):
           spawn = self.spawnPoint(self.my_mother, enemy)
           self.spawn(spawn[0], spawn[1], self.CHOKER)
+        
 
   def setBudget(self):
     self.budget = dict()
