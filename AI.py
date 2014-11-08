@@ -14,18 +14,24 @@ class AI(BaseAI):
   def password():
     return "password"
 
+  uprootRange = 50  # SHOULD BE GLOBAL CONSTANT
+
   cache = dict()
   mySpawners = dict()
   spawning = dict()
   enemies = dict() 
   health = dict()
   pools = dict()
+  budget = dict()
 
   my_spores = 0
   enemy_mother = (0,0)
   my_mother = (0, 0)
   attackers = (2, 5)
-  branches = [];
+  branches = []
+  mode = 0
+  num_turns = 0
+  num_plants = 0
 
   MOTHER, SPAWNER, CHOKER, SOAKER, TUMBLEWEED, ARALIA, TITAN, POOL = range(8)
   ##This function is called once, before your first turn
@@ -42,6 +48,7 @@ class AI(BaseAI):
   ##This function is called once, after your last turn
   def end(self):
     print self.branches
+    print self.num_turns
     pass
 
   def updateCache(self):
@@ -94,88 +101,103 @@ class AI(BaseAI):
     #TODO: Check the integrity of the branch and fix if necessary
     pass
 
-  def getTarget(self, head):
-    #Determine which branch the head is in
+  def getBranchID(self, unit):
     branchID = 0
+    found = False
     for branch in self.branches:
-      if head in branch:
+      if unit in branch:
+        found = True
         break
       branchID = branchID + 1
+    if found:
+      return branchID
+    return None
+
+  def branchID(self, branch):
+    for i in range(len(self.branches)):
+      if branch is self.branches[i]:
+        return i
+    print("E R R O R : Branch does not exist.")
+
+  def getTarget(self, head):
+    #Determine which branch the head is in
+    branchID = self.getBranchID(head)
 
     #Determine the target
-    if branchID%2 is 0: # Target nearest enemy
+    if branchID%3 is 0: # Target nearest enemy
       return self.find_closest_enemy(head)
-    elif branchID%2 is 1: # Go straight for mother
+    elif branchID%3 is 1: # Go straight for mother
       if (head[0] < self.mapWidth*2/5 and self.playerID is 0) or (head[0] > self.mapWidth*3/5 and self.playerID is 1):
         return (self.mapWidth/2, self.mapHeight*5/6)
       return self.enemy_mother
-    elif branchID%3 is 2: # TODO: Defensive / Radpool seek?
+    elif branchID%3 is 2: # Defensive
+      target = self.find_closest_enemy(self.my_mother)
+      if self.distance(self.my_mother, target) < 800:
+        return target
+      #If the nearest spawner is closer to the threat than the head of this branch, spawn a new defensive branch instead
       return None
+
+  def movePoint(self, origin, target):
+    if target is None or origin not in self.cache:
+      return None
+    r = self.cache[origin].range
+    dist = self.distance(origin, target)
+    sPoint = None
+    if dist > r:
+      sPoint = (origin[0] - int(float(r) / dist * (origin[0] - target[0])),origin[1] - int(float(r) / dist * (origin[1] - target[1])) )
+    else:
+      sPoint = target
+    if not self.occupied(sPoint[0], sPoint[1]):
+      return sPoint
+    for rad in range(15):
+      for neighbor in self.radius(sPoint, rad):
+        if not self.occupied(neighbor[0], neighbor[1]) and self.distance(neighbor, origin) <= r:
+          return neighbor
+    return None
 
   def spawnPoint(self, spawner, target):
     if target is None:
-      print("No target specified")
+      #print("No target specified")
       return None
     if spawner not in self.cache:
       print("Error: spawnPoint spawner at {} does not exist".format(spawner))
       return None
-    r = self.mutations[self.SPAWNER].range
-    if spawner is self.my_mother:
-      r = self.mutations[self.MOTHER].range
+    r = self.uprootRange
     dist = self.distance(spawner, target)
     sPoint = None
     if dist > r:
       sPoint = (spawner[0] - int(float(r) / dist * (spawner[0] - target[0])),spawner[1] - int(float(r) / dist * (spawner[1] - target[1])) )
     else:
       sPoint = target
-    if sPoint is None:
-      print("Fatal Error. spawnPoint is None")
     if not self.occupied(sPoint[0], sPoint[1]):
       return sPoint
-    for _ in range(self.mutations[self.SPAWNER].range):
-      for neighbor in self.radius(sPoint, r):
+    for rad in range(self.mutations[self.SPAWNER].range):
+      for neighbor in self.radius(sPoint, rad):
         if not self.occupied(neighbor[0], neighbor[1]) and self.distance(neighbor, spawner) <= r:
           return neighbor
     print("Critical Error - could not find a spawnPoint in range")
     return None
 
-  def bring_to_front(self, unit):
-    for enemy in self.enemies:
-      if self.distance(unit, enemy) <= self.mutations[self.cache[unit].mutation].range: #it is in range of enemies already
-        return
-
-    #find spawners in range
-    nearbySpawners = []
+  def getBranch(self, unit):
     for spawner in self.mySpawners:
-      if self.distance(unit, spawner) < self.mutations[self.SPAWNER].range: #Update this for mother weed
-        nearbySpawners.append(spawner)
-    #find where it is in the branch
-    my_branch = None
-    for branch in self.branches:
-      for spawner in nearbySpawners:
-        if spawner in branch:
-          if spawner is branch[len(branch) - 1]:
-            print("{} is already at the frontline".format(unit))
-            return None
-          my_branch = branch;
-    if my_branch is None:
-      print("No spawners in range of {}".format(unit))
+      if self.distance(unit, spawner) < self.cache[spawner].range:
+        return spawner
+
+  def bring_to_front(self, unit):
+    spawner = self.getBranch(unit)
+    if spawner is None:
       return None
     #bring the unit closer to the front
-    for node in nearbySpawners:
-      if node not in self.mySpawners:
-        print("Branch Error: node {} does not exist".format(node))
-        return None
-      if node in nearbySpawners:
-        if node is my_branch[len(my_branch) - 1]:
-          print("{} is already at the frontline".format(unit))
-          return None#self.spawnPoint(my_branch[len(my_branch) - 1], self.find_closest_enemy(unit))
-        else:
-          coord = self.spawnPoint(spawner, my_branch[len(my_branch) - 1])
-          print("{} can move to {}".format(unit, coord))
-          return coord
-        break
-    return None
+    point = self.movePoint(unit, self.find_closest_enemy(unit))
+    return point
+    '''OLD
+    #find spawners in range
+    spawner = self.getBranch(unit)
+    if spawner is None:
+      return None
+    #bring the unit closer to the front
+    point = self.spawnPoint(spawner, self.getTarget(spawner))
+    return point'''
 
   def occupied(self, x, y):
     return ((x, y) in self.cache or ((x, y) in self.spawning and self.spawning[(x, y)] is not 0))
@@ -186,9 +208,17 @@ class AI(BaseAI):
         self.my_spores = self.my_spores - self.mutations[mutation].spores
         self.players[self.playerID].germinate(x, y, mutation)
         self.spawning[(x, y)] = mutation
+        self.num_plants = self.num_plants + 1
         return True
     return False
   
+  def spawnFrom(self, x, y, mutation, branchID):
+    if self.budget[branchID] > self.mutations[mutation].spores:
+      if self.spawn(x, y, mutation):
+        self.budget[branchID] = self.budget[branchID] - self.mutations[mutation].spores
+        return True
+    return False
+
   def addSpawner(self, x, y, branch):
     #print("Calling addSpawner at ({}) onto {}".format((x, y), branch))
     if self.spawn(x, y, self.SPAWNER):
@@ -216,19 +246,21 @@ class AI(BaseAI):
         elif head not in self.cache:
           print("CRITICAL ERROR: spawner at {} does not exist. Removing.".format(head))
         else:
-          print("Head: {} {}".format(head, self.cache[head].id))
+          #print("Head: {} {}".format(head, self.cache[head].id))
 
           # Make sure there is a valid target
           branch.append(head)
+          branchID = self.getBranchID(head)
+
           goal = self.getTarget(head)
           target = self.spawnPoint(head, goal)
-          if target is None:
-            print("Error... no target???")
-          
+
+          if branchID >= len(self.branches) or target is None:
+            self
           # Path toward it if it is out of range
           elif self.distance(goal, head) > self.mutations[self.SPAWNER].range:
             if not self.addSpawner(target[0], target[1], branch):
-              print("Error adding spawner at {}".format(target))
+              #print("Error adding spawner at {}".format(target))
               spawned = False;
               for i in range(5):
                 if spawned:
@@ -239,12 +271,12 @@ class AI(BaseAI):
                     spawned = True;
                     break;
           else:
-            self.spawn(target[0], target[1], self.CHOKER)
-            for rad in range(3):
-              for t in self.radius(head, rad*2):
-                self.spawn(t[0], t[1], self.ARALIA)
-              for t in self.radius(target, rad*2):
-                self.spawn(t[0], t[1], random.choice(self.attackers))
+            self.spawnFrom(target[0], target[1], self.CHOKER, branchID)
+            for rad in range(5):
+              for t in self.radius(goal, rad):
+                self.spawnFrom(t[0], t[1], self.ARALIA, branchID)
+              for t in self.radius(goal, rad):
+                self.spawnFrom(t[0], t[1], random.choice(self.attackers), branchID)
   
   def add_branch(self, x, y):
     if self.spawn(x, y, self.SPAWNER):
@@ -263,7 +295,7 @@ class AI(BaseAI):
     pass
 
   def forward(self, x, dist):
-    if self.playerID:
+    if self.playerID is 0:
       return x + dist
     return x - dist
 
@@ -279,29 +311,71 @@ class AI(BaseAI):
               plant.radiate(enemy[0], enemy[1])
               self.health[enemy] = self.health[enemy] - plant.strength
               break
-        '''for _ in range(plant.maxUproots):
+        # UPROOT
+        spawned = False
         move_to = self.bring_to_front((plant.x, plant.y))
-        if move_to is not None:
-          print("UPROOTING TO {}".format(move_to))
-          self.cache.pop((plant.x, plant.y), "None")
-          plant.uproot(move_to[0], move_to[1])
-          self.cache[move_to] = plant;'''
+        if move_to is not None and self.distance((plant.x, plant.y), move_to) >= plant.range:
+          for rad in range(5):
+            if not spawned:
+              for t in self.radius(move_to, rad):
+                if not self.occupied(t[0], t[1]) and not spawned:
+                  plant.uproot(move_to[0], move_to[1])
+                  self.cache[move_to] = plant;
+                  spawned = True
+        plant.uproot(self.forward((plant.x), random.randint(40,50)), plant.y)
     pass
 
+
+  def defend(self):
+    for enemy in self.enemies:
+      if self.distance(enemy, self.my_mother) < self.mutations[self.MOTHER].range:
+        for _ in range(5):
+          spawn = self.spawnPoint(self.my_mother, enemy)
+          self.spawn(spawn[0], spawn[1], self.CHOKER)
+
+  def setBudget(self):
+    self.budget = dict()
+    for i in range(len(self.branches)):
+      self.budget[i] = self.my_spores / len(self.branches)
+
   def run(self):
-    #print(" BRANCHES : {}".format(self.branches))
+
+    self.num_turns = self.num_turns + 1
+    self.mode = 0#self.playerID#1 - self.playerID
     self.my_spores = self.players[self.playerID].spores
     self.updateCache()
-    self.attack()
-    self.branch_spawn()
-    if self.turnNumber <= 6:
-      b = self.branches[len(self.branches) - 1]
-      spawner = b[0]
-      if spawner in self.cache:
-        target = self.spawnPoint(spawner, (spawner[0], self.mapHeight))
-        self.add_branch(target[0], target[1])
+    self.setBudget()
+
+    if self.mode == 0: #Branch Out strategy
+      #print(" BRANCHES : {}".format(self.branches))
+      self.defend()
+      self.setBudget()
+      self.attack()
+      self.branch_spawn()
+      if self.turnNumber <= 6:
+        b = self.branches[len(self.branches) - 1]
+        spawner = b[0]
+        if spawner in self.cache:
+          target = self.spawnPoint(spawner, (spawner[0], self.mapHeight))
+          if target is not None:
+            self.add_branch(target[0], target[1])
 
 
+    if self.mode == 1: #Cluster-Defense Strategy
+      for plant in self.plants:
+        if plant.owner is self.playerID and plant.mutation is not self.MOTHER:
+          plant.uproot(self.forward((plant.x), random.randint(1, 10)), plant.y)
+      while self.num_plants < 300 and self.my_spores >= self.mutations[self.ARALIA].spores:
+        self.spawn(self.my_mother[0] + random.randint(-150, 150), self.my_mother[1] + random.randint(-150, 150), self.ARALIA)
+      self.attack()
+
+    if self.mode == 2: #TestAI mode
+      if self.turnNumber == 1:
+        self.testGerminate()
+      if self.turnNumber == 33:
+        self.checkGerminate()
+
+    #print("{} -> {}".format(self.players[self.playerID].spores, self.my_spores))
     return 1
 
   def __init__(self, conn):
