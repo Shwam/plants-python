@@ -124,9 +124,9 @@ class AI(BaseAI):
     branchID = self.getBranchID(head)
 
     #Determine the target
-    if branchID%3 is 0: # Target nearest enemy
+    if branchID%2 is 0: # Target nearest enemy
       return self.find_closest_enemy(head)
-    elif branchID%3 is 1: # Go straight for mother
+    elif branchID%2 is 1: # Go straight for mother
       if (head[0] < self.mapWidth*2/5 and self.playerID is 0) or (head[0] > self.mapWidth*3/5 and self.playerID is 1):
         return (self.mapWidth/2, self.mapHeight*5/6)
       return self.enemy_mother
@@ -274,7 +274,7 @@ class AI(BaseAI):
             self.spawnFrom(target[0], target[1], self.CHOKER, branchID)
             for rad in range(5):
               for t in self.radius(goal, rad):
-                self.spawnFrom(t[0], t[1], self.attackers[self.playerID], branchID)
+                self.spawnFrom(t[0], t[1], random.choice(self.attackers), branchID)
   
   def add_branch(self, x, y):
     if self.spawn(x, y, self.SPAWNER):
@@ -340,7 +340,6 @@ class AI(BaseAI):
       self.budget[i] = self.my_spores / len(self.branches)
 
   def run(self):
-
     self.num_turns = self.num_turns + 1
     self.mode = 0#self.playerID#1 - self.playerID
     self.my_spores = self.players[self.playerID].spores
@@ -365,16 +364,10 @@ class AI(BaseAI):
     if self.mode == 1: #Cluster-Defense Strategy
       for plant in self.plants:
         if plant.owner is self.playerID and plant.mutation is not self.MOTHER:
-          plant.uproot(self.forward((plant.x), random.randint(1, 10)), plant.y)
-      while self.num_plants < 300 and self.my_spores >= self.mutations[self.ARALIA].spores:
+          plant.uproot(self.forward((plant.x), random.randint(40, self.uprootRange)), plant.y)
+      while self.num_plants < self.maxPlants and self.my_spores >= self.mutations[self.ARALIA].spores:
         self.spawn(self.my_mother[0] + random.randint(-150, 150), self.my_mother[1] + random.randint(-150, 150), self.ARALIA)
       self.attack()
-
-    if self.mode == 2: #TestAI mode
-      if self.turnNumber == 1:
-        self.testGerminate()
-      if self.turnNumber == 33:
-        self.checkGerminate()
 
     #print("{} -> {}".format(self.players[self.playerID].spores, self.my_spores))
     return 1
